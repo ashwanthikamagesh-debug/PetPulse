@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetPulse - Medical History Report</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Modern Report Formatting */
+        body {
+            background-color: #f8f9fa;
+            color: #212529;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .report-card {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .header-brand {
+            border-bottom: 2px solid #0d6efd;
+            padding-bottom: 1rem;
+        }
+        .timeline-item {
+            border-left: 3px solid #0d6efd;
+            padding-left: 1.2rem;
+            position: relative;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -7px;
+            top: 4px;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: #0d6efd;
+        }
+
+        /* Dedicated Print Stylesheet */
+        @media print {
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .report-card {
+                box-shadow: none !important;
+                padding: 0 !important;
+            }
+            .timeline-item {
+                border-left-color: #000000 !important;
+            }
+            .timeline-item::before {
+                background: #000000 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Non-Printable Header Controls -->
+    <div class="container py-3 no-print">
+        <div class="d-flex justify-content-between align-items-center">
+            <a href="index.html" class="btn btn-outline-secondary btn-sm">← Back to Dashboard</a>
+            <button onclick="window.print()" class="btn btn-primary">
+                🖨️ Print / Save as PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Printable Report Body -->
+    <div class="container my-2">
+        <div class="report-card">
+            
+            <!-- Report Header -->
+            <div class="header-brand d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="fw-bold text-primary mb-0">🐾 PetPulse</h2>
+                    <p class="text-muted mb-0">Clinical Medical History & Diagnostic Summary</p>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-light text-dark border">Generated: <span id="reportDate"></span></span>
+                </div>
+            </div>
+
+            <!-- Pet Metadata Overview -->
+            <div class="row bg-light rounded p-3 mb-4 mx-0 border">
+                <div class="col-md-3 col-6 mb-2 mb-md-0">
+                    <small class="text-uppercase text-muted fw-bold d-block">Pet ID</small>
+                    <span id="petIdDisplay" class="fw-bold">--</span>
+                </div>
+                <div class="col-md-3 col-6 mb-2 mb-md-0">
+                    <small class="text-uppercase text-muted fw-bold d-block">Name / Breed</small>
+                    <span id="petNameBreedDisplay" class="fw-bold">--</span>
+                </div>
+                <div class="col-md-3 col-6">
+                    <small class="text-uppercase text-muted fw-bold d-block">Age</small>
+                    <span id="petAgeDisplay" class="fw-bold">--</span>
+                </div>
+                <div class="col-md-3 col-6">
+                    <small class="text-uppercase text-muted fw-bold d-block">Weight</small>
+                    <span id="petWeightDisplay" class="fw-bold">--</span>
+                </div>
+            </div>
+
+            <!-- Medical History Timeline -->
+            <h5 class="fw-bold text-dark mb-3">Clinical History & Visit Notes</h5>
+            <div id="recordsContainer">
+                <div class="text-center text-muted py-4">Loading clinical history...</div>
+            </div>
+
+            <!-- Footer / Sign-off -->
+            <div class="mt-5 pt-4 border-top text-center text-muted small">
+                <p class="mb-1">This clinical history is an official record maintained via PetPulse RBAC System.</p>
+                <p class="mb-0">Certified by Authenticated Veterinarian Network.</p>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set current report generation date
+            document.getElementById('reportDate').textContent = new Date().toLocaleDateString();
+
+            // Extract Pet ID from Query Parameter (e.g., report.html?petId=p003)
+            const urlParams = new URLSearchParams(window.location.search);
+            const petId = urlParams.get('petId') || 'p003'; // Defaults to p003 for quick testing
+
+            fetchReportData(petId);
+        });
+
+        async function fetchReportData(petId) {
+            try {
+                // Fetch Pet Profile
+                const petRes = await fetch(`${API_URL}/vet/pet/${petId}`);
+                if (petRes.ok) {
+                    const pet = await petRes.json();
+                    document.getElementById('petIdDisplay').textContent = pet.id;
+                    document.getElementById('petNameBreedDisplay').textContent = `${pet.name} (${pet.breed})`;
+                    document.getElementById('petAgeDisplay').textContent = `${pet.age} years`;
+                    document.getElementById('petWeightDisplay').textContent = `${pet.weight} kg`;
+                }
+
+                // Fetch Health Records
+                const recordsRes = await fetch(`${API_URL}/vet/records/${petId}`);
+                if (recordsRes.ok) {
+                    const records = await recordsRes.json();
+                    const container = document.getElementById('recordsContainer');
+
+                    if (records.length === 0) {
+                        container.innerHTML = `<div class="alert alert-light border text-center">No clinical records registered for this pet profile.</div>`;
+                        return;
+                    }
+
+                    container.innerHTML = records.map(r => `
+                        <div class="timeline-item mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <h6 class="fw-bold text-dark mb-0">${r.diagnosis}</h6>
+                                <span class="badge bg-secondary">${r.visitDate}</span>
+                            </div>
+                            <p class="mb-1"><strong>Treatment / Prescription:</strong> ${r.treatment}</p>
+                            ${r.vetNotes ? `<p class="text-muted small mb-0"><em>Notes: ${r.vetNotes}</em></p>` : ''}
+                        </div>
+                    `).join('');
+                }
+            } catch (err) {
+                console.error("Error generating report:", err);
+            }
+        }
+    </script>
+</body>
+</html>
